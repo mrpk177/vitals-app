@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhotoPulse Lab — Experimental Camera Biosignal Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14100d;
+    --panel: #1d1712;
+    --panel-2: #241c15;
+    --hairline: #3a2f22;
+    --amber: #ffb000;
+    --amber-dim: #8a5f14;
+    --copper: #c97c4b;
+    --paper: #cdbfa9;
+    --muted: #8a7c68;
+    --alert: #e4572e;
+    --good: #7fae6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 20% -10%, #241a10 0%, transparent 60%),
+      radial-gradient(1000px 600px at 100% 110%, #1a1410 0%, transparent 55%),
+      var(--bg);
+    color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    padding:28px 18px 60px;
+  }
+  .wrap{max-width:1180px; margin:0 auto;}
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:20px; flex-wrap:wrap;
+    border-bottom:1px solid var(--hairline);
+    padding-bottom:16px; margin-bottom:16px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--copper); margin-bottom:6px;
+  }
+  h1{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:800; font-size:44px; line-height:.95;
+    letter-spacing:.01em; margin:0; color:var(--paper);
+    text-transform:uppercase;
+  }
+  h1 span{color:var(--amber);}
+  .tagline{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px; color:var(--muted); margin-top:8px; max-width:520px;
+  }
+  .unit-id{
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted);
+    text-align:right; line-height:1.7;
+  }
+  .unit-id b{color:var(--paper); font-weight:600;}
+
+  /* ---------- Disclaimer banner ---------- */
+  .banner{
+    display:flex; gap:12px; align-items:flex-start;
+    background:linear-gradient(90deg, rgba(228,87,46,0.14), rgba(228,87,46,0.04));
+    border:1px solid rgba(228,87,46,0.4);
+    border-left:4px solid var(--alert);
+    padding:12px 16px; border-radius:2px; margin-bottom:22px;
+    font-size:13px; line-height:1.55;
+  }
+  .banner .mark{
+    font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--alert);
+    flex-shrink:0; letter-spacing:.05em; font-size:11px; padding-top:2px;
+  }
+  .banner p{margin:0; color:#e7d9c8;}
+  .banner b{color:var(--alert);}
+
+  /* ---------- Main grid ---------- */
+  main{display:grid; grid-template-columns: 1.1fr 0.9fr; gap:18px;}
+  @media (max-width: 880px){ main{grid-template-columns: 1fr;} }
+
+  .panel{
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--hairline);
+    border-radius:6px;
+    padding:16px;
+    position:relative;
+  }
+  .panel::before{
+    content:''; position:absolute; inset:0; border-radius:6px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    pointer-events:none;
+  }
+  .panel-label{
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel-label .dot{
+    width:7px; height:7px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:6px;
+  }
+  .panel-label.live .dot{background:var(--alert); box-shadow:0 0 8px var(--alert); animation:blink 1.2s infinite;}
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+  /* ---------- Camera panel ---------- */
+  .cam-stage{
+    position:relative; width:100%; aspect-ratio: 4/3;
+    background:#0c0906; border-radius:4px; overflow:hidden;
+    border:1px solid var(--hairline);
+  }
+  video{
+    width:100%; height:100%; object-fit:cover; transform:scaleX(-1);
+    display:block; filter:saturate(1.05) contrast(1.02);
+  }
+  .cam-placeholder{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; color:var(--muted); text-align:center; padding:20px;
+  }
+  .cam-placeholder svg{opacity:.5;}
+  .guide{
+    position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
+    width:46%; height:64%; border:1.5px dashed rgba(255,176,0,0.55);
+    border-radius:50% / 42%; pointer-events:none;
+    transition:border-color .3s;
+  }
+  .guide.ok{border-color:rgba(127,174,107,0.75);}
+  .roi-box{
+    position:absolute; left:38%; top:26%; width:24%; height:16%;
+    border:1px solid rgba(255,176,0,0.85); border-radius:2px; pointer-events:none;
+    box-shadow:0 0 0 2000px rgba(0,0,0,0.0);
+  }
+  .cam-hint{
+    position:absolute; left:0; right:0; bottom:0; padding:8px 12px;
+    font-family:'JetBrains Mono', monospace; font-size:11px;
+    background:linear-gradient(0deg, rgba(0,0,0,0.65), transparent);
+    color:var(--paper); text-align:center; letter-spacing:.03em;
+  }
+  .controls{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
+  button{
+    font-family:'JetBrains Mono', monospace; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    background:var(--panel-2); color:var(--paper); border:1px solid var(--hairline);
+    padding:10px 16px; border-radius:3px; cursor:pointer; transition:.15s;
+  }
+  button:hover{border-color:var(--amber); color:var(--amber);}
+  button.primary{background:var(--amber); color:#1a1410; border-color:var(--amber); font-weight:700;}
+  button.primary:hover{background:#ffc740; color:#1a1410;}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  button:disabled:hover{border-color:var(--hairline); color:var(--paper);}
+
+  .status-line{
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted);
+    margin-top:10px; min-height:16px;
+  }
+  .status-line.warn{color:var(--alert);}
+  .status-line.good{color:var(--good);}
+
+  /* ---------- Readout panel ---------- */
+  .readouts{display:flex; flex-direction:column; gap:14px;}
+  .bpm-card{
+    display:flex; align-items:center; gap:18px;
+    border-bottom:1px solid var(--hairline); padding-bottom:16px;
+  }
+  .heart-icon{flex-shrink:0;}
+  .heart-icon svg{filter:drop-shadow(0 0 6px rgba(255,176,0,0.0)); transition:filter .1s;}
+  .heart-icon.beat svg{filter:drop-shadow(0 0 10px rgba(255,176,0,0.9));}
+  .heart-icon.beat{animation:thump .25s ease-out;}
+  @keyframes thump{ 0%{transform:scale(1);} 30%{transform:scale(1.22);} 100%{transform:scale(1);} }
+  .bpm-num{
+    font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:64px;
+    line-height:.9; color:var(--amber); letter-spacing:.01em;
+  }
+  .bpm-num small{font-family:'JetBrains Mono',monospace; font-size:16px; color:var(--muted); font-weight:500; margin-left:6px;}
+  .bpm-cap{font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-top:2px;}
+
+  .metric-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .metric{
+    background:rgba(0,0,0,0.18); border:1px solid var(--hairline); border-radius:4px; padding:10px 12px;
+  }
+  .metric .cap{font-family:'JetBrains Mono', monospace; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);}
+  .metric .val{font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; color:var(--paper); margin-top:3px;}
+  .metric .val span{font-size:12px; color:var(--muted); font-weight:400;}
+
+  .quality-bar{height:6px; background:var(--hairline); border-radius:3px; overflow:hidden; margin-top:6px;}
+  .quality-bar > div{height:100%; width:0%; background:var(--alert); transition:width .4s, background .4s;}
+
+  .stress-note{
+    font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--muted); line-height:1.5;
+    margin-top:2px; border-top:1px dashed var(--hairline); padding-top:10px;
+  }
+
+  /* ---------- Scope strip ---------- */
+  .scope-panel{grid-column: 1 / -1; margin-top:0;}
+  canvas#scope{
+    width:100%; height:150px; display:block; background:#0c0906;
+    border-radius:4px; border:1px solid var(--hairline);
+  }
+
+  /* ---------- About / footer ---------- */
+  footer{margin-top:22px;}
+  details{
+    background:var(--panel); border:1px solid var(--hairline); border-radius:6px; padding:14px 16px;
+  }
+  summary{
+    cursor:pointer; font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--copper);
+  }
+  .about-body{margin-top:12px; font-size:13px; line-height:1.65; color:#c9bba7;}
+  .about-body h4{font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--amber); margin:14px 0 4px;}
+  .about-body ul{margin:4px 0; padding-left:18px;}
+  .about-body code{background:rgba(0,0,0,0.3); padding:1px 5px; border-radius:3px; font-family:'JetBrains Mono',monospace; font-size:12px;}
+
+  /* ---------- Profile bar ---------- */
+  .profile-bar{
+    display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;
+    background:var(--panel); border:1px solid var(--hairline); border-radius:6px;
+    padding:14px 16px; margin-bottom:18px;
+  }
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field label{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);}
+  .field input, .field select{
+    background:#100c08; border:1px solid var(--hairline); color:var(--paper);
+    font-family:'JetBrains Mono',monospace; font-size:13px; padding:8px 10px; border-radius:3px; min-width:190px;
+  }
+  .field input:focus, .field select:focus{outline:none; border-color:var(--amber);}
+  .profile-summary{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-left:auto; text-align:right; line-height:1.5;
+  }
+  .profile-summary b{color:var(--paper);}
+  .cam-note{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin:-4px 0 10px; line-height:1.5;
+  }
+
+  /* ---------- Comparison panel ---------- */
+  .compare-panel{grid-column: 1 / -1;}
+  .compare-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
+  @media (max-width:760px){ .compare-grid{grid-template-columns:1fr 1fr;} }
+  .compare-metric{background:rgba(0,0,0,0.18); border:1px solid var(--hairline); border-radius:4px; padding:10px 12px;}
+  .compare-metric .cap{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+  .compare-metric .row{display:flex; align-items:baseline; gap:8px; margin-top:4px;}
+  .compare-metric .now{font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:600; color:var(--paper);}
+  .compare-metric .delta{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600;}
+  .delta.up{color:var(--alert);}
+  .delta.down{color:#6fa0d8;}
+  .delta.flat{color:var(--muted);}
+  .compare-metric .prev{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); margin-top:2px;}
+  .insight-box{
+    background:rgba(255,176,0,0.05); border:1px solid rgba(255,176,0,0.25); border-left:3px solid var(--amber);
+    border-radius:3px; padding:12px 14px; font-size:13px; line-height:1.65; color:#e7d9c8; margin-bottom:14px;
+  }
+  .insight-box b{color:var(--amber);}
+  canvas#historyChart{width:100%; height:120px; display:block; background:#0c0906; border-radius:4px; border:1px solid var(--hairline);}
+  .no-history{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); padding:6px 0;}
+
+  /* ---------- History table ---------- */
+  .history-table-wrap{margin-top:16px; overflow-x:auto;}
+  table.history-table{width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:12px;}
+  table.history-table th{
+    text-align:left; color:var(--muted); font-weight:500; letter-spacing:.06em; text-transform:uppercase; font-size:10px;
+    border-bottom:1px solid var(--hairline); padding:7px 10px;
+  }
+  table.history-table td{border-bottom:1px solid rgba(58,47,34,0.5); padding:7px 10px; color:var(--paper);}
+  table.history-table tr:last-child td{border-bottom:none; color:var(--amber);}
+  .report-actions{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
+
+  /* ---------- Reference ranges ---------- */
+  .ref-ranges{margin-top:18px; padding-top:14px; border-top:1px solid var(--hairline);}
+  .ref-ranges .cap{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:8px;}
+  table.ref-table{width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:12px;}
+  table.ref-table th{text-align:left; color:var(--muted); font-weight:500; font-size:10px; letter-spacing:.05em; text-transform:uppercase; border-bottom:1px solid var(--hairline); padding:6px 10px;}
+  table.ref-table td{border-bottom:1px solid rgba(58,47,34,0.5); padding:7px 10px; color:var(--paper); vertical-align:top;}
+  table.ref-table td.src{color:var(--muted); font-size:11px;}
+  .ref-flag{font-weight:600;}
+  .ref-flag.within{color:var(--good);}
+  .ref-flag.above, .ref-flag.below{color:var(--copper);}
+  .ref-flag.na{color:var(--muted); font-weight:400;}
+  .ref-caveat{font-size:11px; color:var(--muted); line-height:1.55; margin-top:10px;}
+
+  /* ---------- Equipment & doctor notes ---------- */
+  .equip-form{display:grid; grid-template-columns: 1.1fr 0.7fr 0.5fr 1.5fr auto; gap:10px; align-items:end; margin-bottom:14px;}
+  @media (max-width:820px){ .equip-form{grid-template-columns:1fr 1fr;} }
+  .equip-form .field input, .equip-form .field select, .equip-form .field textarea{min-width:0; width:100%;}
+  .equip-form textarea{resize:vertical; min-height:38px; font-family:'JetBrains Mono',monospace; font-size:12px;}
+  table.equip-table{width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:12px; margin-top:4px;}
+  table.equip-table th{text-align:left; color:var(--muted); font-weight:500; font-size:10px; letter-spacing:.05em; text-transform:uppercase; border-bottom:1px solid var(--hairline); padding:6px 10px;}
+  table.equip-table td{border-bottom:1px solid rgba(58,47,34,0.5); padding:7px 10px; color:var(--paper); vertical-align:top;}
+  table.equip-table .note-cell{color:#cdbfa9; max-width:280px;}
+  .equip-del{background:none; border:1px solid var(--hairline); color:var(--muted); padding:3px 8px; font-size:10px;}
+  .equip-del:hover{border-color:var(--alert); color:var(--alert);}
+  .equip-empty{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); padding:6px 0;}
+
+  /* ---------- Technical detail toggle ---------- */
+  .tech-toggle{display:flex; align-items:center; gap:8px; margin-top:12px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted);}
+  .tech-toggle input{accent-color:var(--amber);}
+  .tech-detail{display:none; margin-top:8px; background:rgba(0,0,0,0.22); border:1px solid var(--hairline); border-radius:4px; padding:10px 12px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#c9bba7; line-height:1.7;}
+  .tech-detail.show{display:block;}
+  .tech-detail b{color:var(--amber);}
+
+  /* ---------- Print-only report ---------- */
+  .print-only{display:none;}
+  @media print{
+    body{background:#fff !important; color:#000 !important; padding:16px;}
+    .print-only{display:block !important;}
+    header, .banner, .profile-bar, .cam-note, .cam-stage, .controls, .status-line, #camPanelLabel,
+    .readouts, .scope-panel, footer, .report-actions, .panel-label, #fileProtocolBanner{display:none !important;}
+    main{display:block !important;}
+    .compare-panel{border:none !important; background:#fff !important; padding:0 !important;}
+    .compare-grid{grid-template-columns:repeat(4,1fr) !important;}
+    .compare-metric{background:#fff !important; border:1px solid #999 !important;}
+    .compare-metric .now, .compare-metric .cap{color:#000 !important;}
+    .insight-box{background:#fff !important; border:1px solid #999 !important; color:#000 !important;}
+    .insight-box b{color:#000 !important;}
+    canvas#historyChart{display:none !important;}
+    table.history-table th, table.history-table td{color:#000 !important; border-color:#999 !important;}
+    table.history-table tr:last-child td{color:#000 !important; font-weight:700;}
+    table.ref-table th, table.ref-table td{color:#000 !important; border-color:#999 !important;}
+    .ref-flag.within, .ref-flag.above, .ref-flag.below{color:#000 !important;}
+    .equip-panel{border:none !important; background:#fff !important; padding:0 !important;}
+    .equip-form, .tech-toggle, .tech-detail{display:none !important;}
+    table.equip-table th, table.equip-table td{color:#000 !important; border-color:#999 !important;}
+  }
+  .print-header{border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:16px;}
+  .print-header h2{margin:0 0 4px; font-size:20px;}
+  .print-header .meta{font-size:12px; color:#333;}
+  .print-disclaimer{font-size:11px; border:1px solid #999; padding:8px 10px; margin-bottom:16px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="print-only print-header" id="printHeader">
+  <h2>PhotoPulse Lab — Home Optical Pulse Log</h2>
+  <div class="meta" id="printMeta">Profile: — · Generated: —</div>
+</div>
+<div class="print-only print-disclaimer">
+  Self-collected at home using a webcam-based optical pulse estimate (rPPG), not a clinical device. Values are approximate and can be affected by lighting, motion, and skin tone. Provided as context only — please interpret alongside a proper clinical exam.
+</div>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">Optical Signal Instrumentation — Client-Side Only</div>
+      <h1>PHOTO<span>PULSE</span> LAB</h1>
+      <div class="tagline">Reads the faint color shifts in your skin caused by blood flow and turns them into a live waveform. An experiment in remote photoplethysmography (rPPG) — built for curiosity, not for medicine.</div>
+    </div>
+    <div class="unit-id">
+      MODEL <b>PPL-1</b> · REV A<br>
+      SIGNAL PATH: RGB → BAND-PASS → DFT<br>
+      DATA LEAVES THIS TAB: <b>NEVER</b>
+    </div>
+  </header>
+
+  <div class="banner">
+    <div class="mark">⚠ NOT&nbsp;MEDICAL</div>
+    <p>This is a hobbyist signal-processing toy, not a diagnostic or medical device. It does not measure blood oxygen, blood pressure, or diagnose any condition. Numbers shown are rough estimates from consumer webcam video and can be wrong. <b>Never use this to make a health decision.</b> If you have symptoms that concern you, contact a real clinician.</p>
+  </div>
+
+  <div class="profile-bar">
+    <div class="field">
+      <label for="profileInput">Who's being measured?</label>
+      <input type="text" id="profileInput" list="profileList" placeholder="Type a name, e.g. Asha" maxlength="40">
+      <datalist id="profileList"></datalist>
+    </div>
+    <div class="field">
+      <label for="cameraSelect">Camera source</label>
+      <select id="cameraSelect"><option value="">Default camera</option></select>
+    </div>
+    <div class="field">
+      <label for="resSelect">Requested resolution</label>
+      <select id="resSelect">
+        <option value="480">Standard — 640×480</option>
+        <option value="720" selected>HD — 1280×720</option>
+        <option value="1080">Full HD — 1920×1080</option>
+        <option value="2160">4K — 3840×2160 (if supported)</option>
+      </select>
+    </div>
+    <div class="profile-summary" id="profileSummary">No saved sessions yet for this name.</div>
+  </div>
+  <div class="banner" id="fileProtocolBanner" style="display:none; flex-direction:column;">
+    <div style="display:flex; gap:12px; align-items:flex-start; width:100%;">
+      <div class="mark">⚠ CAMERA BLOCKED</div>
+      <p style="margin:0;">This page can't reach your camera the way it's currently opened — see below for the fix that matches your device.</p>
+    </div>
+    <div class="field" style="margin-top:10px; max-width:280px;">
+      <label for="platformSelect">Show instructions for</label>
+      <select id="platformSelect">
+        <option value="android">Android phone</option>
+        <option value="ios">iPhone / iPad</option>
+        <option value="desktop">Windows / Mac / Linux computer</option>
+      </select>
+    </div>
+    <div id="fileProtocolText" style="margin-top:10px; font-size:13px; line-height:1.7; color:#e7d9c8;"></div>
+  </div>
+
+
+  <div class="cam-note" id="camNote">Plug in an external/USB camera before starting, then hit "Refresh list" below — higher resolution and a steadier camera mount both improve signal quality.</div>
+  <div class="controls" style="margin:-6px 0 18px;">
+    <button id="btnRefreshCams">Refresh camera list</button>
+  </div>
+
+  <main>
+    <!-- CAMERA PANEL -->
+    <section class="panel">
+      <div class="panel-label" id="camPanelLabel"><span><span class="dot"></span>OPTICAL SENSOR</span><span id="camState">OFFLINE</span></div>
+      <div class="cam-stage" id="camStage">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="cam-placeholder" id="camPlaceholder">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:12px;">Camera feed appears here.<br>Nothing is recorded or sent anywhere.</div>
+        </div>
+        <div class="guide" id="guide"></div>
+        <div class="roi-box" id="roiBox"></div>
+        <div class="cam-hint" id="camHint">Center your face in the oval · good even lighting helps a lot · hold still</div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="btnStart">Start Session</button>
+        <button id="btnStop" disabled>Stop</button>
+      </div>
+      <div class="status-line" id="statusLine">Idle. Press Start Session and allow camera access.</div>
+    </section>
+
+    <!-- READOUT PANEL -->
+    <section class="panel readouts">
+      <div class="panel-label live" id="pulsePanelLabel"><span><span class="dot"></span>PULSE READOUT</span><span id="calibState">—</span></div>
+
+      <div class="bpm-card">
+        <div class="heart-icon" id="heartIcon">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#ffb000" stroke-width="1.6">
+            <path d="M12 21s-7.5-4.9-10-9.3C.4 8.6 2 5 5.6 5c2 0 3.4 1.1 4.4 2.6C11 6.1 12.4 5 14.4 5 18 5 19.6 8.6 22 11.7 19.5 16.1 12 21 12 21z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="bpm-num" id="bpmNum">— <small>BPM</small></div>
+          <div class="bpm-cap">Heart rate estimate</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="cap">Breathing (est.)</div>
+          <div class="val" id="brVal">—<span> /min</span></div>
+        </div>
+        <div class="metric">
+          <div class="cap">Pulse variability</div>
+          <div class="val" id="hrvVal">—<span> ms</span></div>
+        </div>
+        <div class="metric">
+          <div class="cap">Signal quality</div>
+          <div class="val" id="qualVal">—<span>%</span></div>
+          <div class="quality-bar"><div id="qualBar"></div></div>
+        </div>
+        <div class="metric">
+          <div class="cap">Calm / Load index</div>
+          <div class="val" id="stressVal">—</div>
+        </div>
+      </div>
+
+      <div class="stress-note">"Calm / Load index" is a made-up illustrative number derived from pulse-interval variability, for fun only — it has no clinical meaning and is not a stress or health measurement.</div>
+
+      <label class="tech-toggle"><input type="checkbox" id="techToggle"> Show technical detail (how each number was calculated)</label>
+      <div class="tech-detail" id="techDetail">—</div>
+    </section>
+
+    <!-- SCOPE -->
+    <section class="panel scope-panel">
+      <div class="panel-label"><span><span class="dot"></span>WAVEFORM — LIVE rPPG TRACE</span><span id="scopeRate">0 Hz sample</span></div>
+      <canvas id="scope"></canvas>
+    </section>
+
+    <!-- COMPARISON -->
+    <section class="panel compare-panel">
+      <div class="panel-label"><span><span class="dot"></span>SESSION COMPARISON — <span id="compareProfileName">no profile</span></span><span id="compareCount">0 sessions saved</span></div>
+
+      <div id="noHistoryMsg" class="no-history">Finish a session (press Stop with a good reading) to save it, then start a second session later to see a comparison here.</div>
+
+      <div id="compareBody" style="display:none;">
+        <div class="compare-grid">
+          <div class="compare-metric">
+            <div class="cap">Heart rate</div>
+            <div class="row"><span class="now" id="cmpBpmNow">—</span><span class="delta" id="cmpBpmDelta"></span></div>
+            <div class="prev" id="cmpBpmPrev"></div>
+          </div>
+          <div class="compare-metric">
+            <div class="cap">Breathing</div>
+            <div class="row"><span class="now" id="cmpBrNow">—</span><span class="delta" id="cmpBrDelta"></span></div>
+            <div class="prev" id="cmpBrPrev"></div>
+          </div>
+          <div class="compare-metric">
+            <div class="cap">Pulse variability</div>
+            <div class="row"><span class="now" id="cmpHrvNow">—</span><span class="delta" id="cmpHrvDelta"></span></div>
+            <div class="prev" id="cmpHrvPrev"></div>
+          </div>
+          <div class="compare-metric">
+            <div class="cap">Signal quality</div>
+            <div class="row"><span class="now" id="cmpQualNow">—</span><span class="delta" id="cmpQualDelta"></span></div>
+            <div class="prev" id="cmpQualPrev"></div>
+          </div>
+        </div>
+
+        <div class="insight-box" id="insightBox">—</div>
+
+        <canvas id="historyChart"></canvas>
+
+        <div class="report-actions">
+          <button class="primary" id="btnPrint">Print / Save Report (PDF)</button>
+          <button id="btnClearProfile" title="Deletes all saved sessions for this profile only">Clear this profile's history</button>
+        </div>
+
+        <div class="history-table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr><th>Date &amp; time</th><th>Heart rate</th><th>Breathing</th><th>Pulse variability</th><th>Signal quality</th></tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="ref-ranges">
+          <div class="cap">How the latest reading compares to published adult reference ranges</div>
+          <table class="ref-table">
+            <thead><tr><th>Vital</th><th>Latest reading</th><th>Commonly cited adult range</th><th>Source</th></tr></thead>
+            <tbody id="refTableBody"></tbody>
+          </table>
+          <p class="ref-caveat">These are general population figures for a calm, resting adult — not a personal diagnostic threshold. Fitness level, age, medication, caffeine, anxiety, and even lighting-driven measurement noise can all shift a healthy reading outside these bands. A single reading outside the range is common and, on its own, not a cause for alarm. Pulse variability (HRV) has no single population "normal" the way heart rate does — it's highly individual, so it's best read as a personal trend over time rather than against a fixed number.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- EQUIPMENT & DOCTOR NOTES -->
+    <section class="panel compare-panel equip-panel">
+      <div class="panel-label"><span><span class="dot"></span>MEDICAL EQUIPMENT &amp; DOCTOR NOTES — <span id="equipProfileName">no profile</span></span><span id="equipCount">0 entries</span></div>
+      <p class="ref-caveat" style="margin-top:0;">Log readings from your own real medical devices (pulse oximeter, blood pressure cuff, thermometer, glucometer, etc.) and anything a doctor has told you. This is entered by you, not measured or interpreted by this app — it's just kept alongside the webcam data so a future report has fuller context.</p>
+
+      <div class="equip-form">
+        <div class="field">
+          <label for="equipName">Equipment / source</label>
+          <input type="text" id="equipName" list="equipPresets" placeholder="e.g. Pulse oximeter">
+          <datalist id="equipPresets">
+            <option value="Pulse oximeter (SpO2)"></option>
+            <option value="Blood pressure monitor"></option>
+            <option value="Digital thermometer"></option>
+            <option value="Glucometer"></option>
+            <option value="ECG / heart monitor"></option>
+            <option value="Weighing scale"></option>
+            <option value="Doctor visit note"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="equipReading">Reading</label>
+          <input type="text" id="equipReading" placeholder="e.g. 98 or 120/80">
+        </div>
+        <div class="field">
+          <label for="equipUnit">Unit</label>
+          <input type="text" id="equipUnit" placeholder="e.g. %">
+        </div>
+        <div class="field">
+          <label for="equipNote">Note / doctor's recommendation</label>
+          <textarea id="equipNote" placeholder="e.g. Dr. Rao: readings normal, recheck in 3 months"></textarea>
+        </div>
+        <button class="primary" id="btnAddEquip">Add entry</button>
+      </div>
+
+      <div id="equipEmpty" class="equip-empty">No equipment readings or doctor notes logged yet for this profile.</div>
+      <table class="equip-table" id="equipTable" style="display:none;">
+        <thead><tr><th>Date &amp; time</th><th>Source</th><th>Reading</th><th>Note</th><th></th></tr></thead>
+        <tbody id="equipTableBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <details>
+      <summary>How this actually works (and its limits)</summary>
+      <div class="about-body">
+        <p>Every time your heart beats, a small pulse of blood reaches the capillaries in your skin and changes how much light it reflects — invisibly to the eye, but not to a camera sensor tracking it over time. This app watches a patch of your face, averages its color every frame, and extracts the rhythm hidden in that signal.</p>
+        <h4>Pipeline</h4>
+        <ul>
+          <li>Sample the region-of-interest box at roughly 30 Hz, average pixel color.</li>
+          <li>Detrend the signal to remove slow lighting drift.</li>
+          <li>Scan the 42–180 BPM band with a direct frequency-power search (a small DFT) to find the dominant pulse frequency.</li>
+          <li>Detect individual beats in the smoothed waveform to estimate pulse-interval variability.</li>
+          <li>Look at the much slower 6–30 breaths/min band for a rough breathing estimate.</li>
+        </ul>
+        <h4>Why it can be wrong</h4>
+        <ul>
+          <li>Webcam compression, low light, motion, and multiple faces in frame all degrade the signal.</li>
+          <li>It has no way to verify it's even looking at skin — it just trusts the box you're centered in.</li>
+          <li>It has no per-person calibration and was not validated against clinical instruments.</li>
+        </ul>
+        <h4>Privacy</h4>
+        <p>All video processing happens locally in your browser using JavaScript. No frames or images ever leave your device. The only thing saved is small numeric session summaries (avg BPM, breathing, HRV, quality, timestamp), tied to whatever name you typed — kept in this browser's local storage, never uploaded anywhere.</p>
+        <h4>Why names instead of face recognition</h4>
+        <p>This app can't automatically tell people apart. Real face recognition needs a downloaded ML model and carries real risks of misidentifying someone and attaching the wrong data to the wrong person. Typing a name is slower but it's accurate and it's your choice what gets saved.</p>
+        <h4>Why there's no "doctor mode"</h4>
+        <p>This app will show you how your readings changed session to session and name plausible everyday explanations (caffeine, sleep, activity, room lighting, measurement noise) — but it will not diagnose anything, predict a condition, or recommend a specific clinic or provider. The underlying signal is a rough consumer-webcam estimate, not a clinical measurement, and no chatbot has the exam, history, or judgment a real clinician has. If a change is large or keeps repeating and it worries you, the right move is talking to an actual healthcare professional who can examine you properly — not trusting a number from a webcam.</p>
+        <h4>Why it doesn't scan your face or body for disease signs</h4>
+        <p>It deliberately does not attempt to detect skin, facial, or body-pattern signs of medical conditions, or claim to check them against "world medical" databases. That kind of visual diagnosis is a genuinely hard, actively-researched clinical problem — doing it with an unvalidated webcam script and presenting it as checked against medical literature would make a wrong guess look more credible, not less. What it does instead: track the same few numeric signals over time, and compare your latest reading to openly published adult reference ranges — cited below — as general context, never as a personal verdict.</p>
+        <h4>About the reference ranges</h4>
+        <p>Resting heart rate 60–100 bpm: American Heart Association and Mayo Clinic. Resting breathing rate 12–20 breaths/min: Cleveland Clinic and American Lung Association. These describe a typical calm, resting adult population — they are not thresholds tuned to you personally, and falling outside them once is common and not inherently a problem.</p>
+      </div>
+    </details>
+  </footer>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- DOM ----------
+  const video = document.getElementById('video');
+  const camStage = document.getElementById('camStage');
+  const camPlaceholder = document.getElementById('camPlaceholder');
+  const camState = document.getElementById('camState');
+  const guide = document.getElementById('guide');
+  const btnStart = document.getElementById('btnStart');
+  const btnStop = document.getElementById('btnStop');
+  const statusLine = document.getElementById('statusLine');
+  const calibState = document.getElementById('calibState');
+  const bpmNum = document.getElementById('bpmNum');
+  const brVal = document.getElementById('brVal');
+  const hrvVal = document.getElementById('hrvVal');
+  const qualVal = document.getElementById('qualVal');
+  const qualBar = document.getElementById('qualBar');
+  const stressVal = document.getElementById('stressVal');
+  const heartIcon = document.getElementById('heartIcon');
+  const scopeCanvas = document.getElementById('scope');
+  const scopeRate = document.getElementById('scopeRate');
+  const scopeCtx = scopeCanvas.getContext('2d');
+
+  // Offscreen sampling canvas (small = cheap)
+  const sampleCanvas = document.createElement('canvas');
+  const SAMPLE_W = 160, SAMPLE_H = 120;
+  sampleCanvas.width = SAMPLE_W; sampleCanvas.height = SAMPLE_H;
+  const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+
+  // ROI in normalized sample-canvas coords (forehead/upper-face region, un-mirrored)
+  const ROI = { x0: 0.38, y0: 0.24, x1: 0.62, y1: 0.42 };
+
+  // ---------- State ----------
+  let stream = null;
+  let sampleTimer = null;
+  let analysisTimer = null;
+  let rafId = null;
+  let running = false;
+
+  const SAMPLE_HZ = 30;
+  const MAX_HISTORY_SEC = 30;
+  const MAX_SAMPLES = SAMPLE_HZ * MAX_HISTORY_SEC;
+
+  let buf = []; // { t (sec since start), g, r, b, brightness }
+  let startTime = 0;
+
+  let currentBpm = null;
+  let currentBr = null;
+  let currentHrv = null;
+  let currentQuality = 0;
+  let lastBeatTime = 0;
+  let beatIntervals = []; // ms
+  let lastTechDetail = null;
+
+  // realtime beat-pulse detector state
+  let emaFast = null, emaSlow = null, emaVar = 1;
+  let refractoryUntil = 0;
+
+  // ---------- Profiles & session history (window.storage) ----------
+  const profileInput = document.getElementById('profileInput');
+  const profileList = document.getElementById('profileList');
+  const profileSummary = document.getElementById('profileSummary');
+  const compareProfileName = document.getElementById('compareProfileName');
+  const compareCount = document.getElementById('compareCount');
+  const noHistoryMsg = document.getElementById('noHistoryMsg');
+  const compareBody = document.getElementById('compareBody');
+  const insightBox = document.getElementById('insightBox');
+  const historyChart = document.getElementById('historyChart');
+  const historyCtx = historyChart.getContext('2d');
+
+  let sessionAcc = null; // running accumulator for the session currently in progress
+
+  function currentProfileName() {
+    const v = (profileInput.value || '').trim();
+    return v.length ? v : 'Guest';
+  }
+
+  async function storageGet(key) {
+    try { const r = await window.storage.get(key, false); return r ? JSON.parse(r.value) : null; }
+    catch (e) { return null; }
+  }
+  async function storageSet(key, value) {
+    try { await window.storage.set(key, JSON.stringify(value), false); } catch (e) { /* ignore */ }
+  }
+
+  async function loadProfileList() {
+    const list = (await storageGet('vitals-profile-list')) || [];
+    profileList.innerHTML = list.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+    return list;
+  }
+  async function rememberProfileName(name) {
+    const list = (await storageGet('vitals-profile-list')) || [];
+    if (!list.includes(name)) { list.push(name); await storageSet('vitals-profile-list', list); await loadProfileList(); }
+  }
+  function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  async function getProfileRecord(name) {
+    return (await storageGet('vitals-profile:' + name)) || { name, sessions: [] };
+  }
+  async function saveSessionForCurrentProfile(summary) {
+    const name = currentProfileName();
+    const rec = await getProfileRecord(name);
+    rec.sessions.push(summary);
+    if (rec.sessions.length > 30) rec.sessions.shift();
+    await storageSet('vitals-profile:' + name, rec);
+    await rememberProfileName(name);
+    return rec;
+  }
+
+  function fmtWhen(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+           d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function refreshProfileSummary() {
+    const name = currentProfileName();
+    const rec = await getProfileRecord(name);
+    if (rec.sessions.length === 0) {
+      profileSummary.innerHTML = `No saved sessions yet for <b>${escapeHtml(name)}</b>.`;
+    } else {
+      const last = rec.sessions[rec.sessions.length - 1];
+      profileSummary.innerHTML = `<b>${escapeHtml(name)}</b> · ${rec.sessions.length} session(s) saved · last: ${fmtWhen(last.ts)}, ${Math.round(last.avgBpm || 0)} bpm`;
+    }
+    await renderComparison(rec, null);
+    await refreshEquipmentPanel();
+  }
+
+  profileInput.addEventListener('change', refreshProfileSummary);
+  profileInput.addEventListener('blur', refreshProfileSummary);
+
+  // ---------- Technical detail (explainability) ----------
+  const techToggle = document.getElementById('techToggle');
+  const techDetail = document.getElementById('techDetail');
+  techToggle.addEventListener('change', () => techDetail.classList.toggle('show', techToggle.checked));
+
+  function renderTechDetail() {
+    if (!lastTechDetail) { techDetail.textContent = 'Not enough data yet.'; return; }
+    const d = lastTechDetail;
+    techDetail.innerHTML =
+      `<b>Method:</b> average forehead-region pixel color → detrended → frequency-power scan (42–180 bpm band)<br>` +
+      `<b>Frequency-scan estimate:</b> ${d.dftBpm || '—'} bpm &nbsp; <b>Beat-interval estimate:</b> ${d.intervalBpm || '—'} bpm<br>` +
+      `<b>Signal confidence (peak/total power):</b> ${d.hrConfidence}%<br>` +
+      `<b>Buffered frames:</b> ${d.bufferedFrames} &nbsp; <b>Beats detected:</b> ${d.beatCount} &nbsp; <b>Avg. ROI brightness:</b> ${d.brightnessMean}/255<br>` +
+      `Low confidence or brightness near the edges usually means poor lighting or motion, not a health finding.`;
+  }
+
+  // ---------- Equipment & doctor notes log ----------
+  const equipName = document.getElementById('equipName');
+  const equipReading = document.getElementById('equipReading');
+  const equipUnit = document.getElementById('equipUnit');
+  const equipNote = document.getElementById('equipNote');
+  const btnAddEquip = document.getElementById('btnAddEquip');
+  const equipTable = document.getElementById('equipTable');
+  const equipTableBody = document.getElementById('equipTableBody');
+  const equipEmpty = document.getElementById('equipEmpty');
+  const equipProfileName = document.getElementById('equipProfileName');
+  const equipCount = document.getElementById('equipCount');
+
+  async function getEquipmentRecord(name) {
+    return (await storageGet('vitals-equipment:' + name)) || { name, entries: [] };
+  }
+  async function saveEquipmentRecord(rec) {
+    await storageSet('vitals-equipment:' + rec.name, rec);
+  }
+
+  async function refreshEquipmentPanel() {
+    const name = currentProfileName();
+    const rec = await getEquipmentRecord(name);
+    equipProfileName.textContent = name;
+    equipCount.textContent = rec.entries.length + ' entries';
+    const pm = document.getElementById('printMeta');
+    if (pm && rec.entries.length) pm.textContent += ` · ${rec.entries.length} equipment/note entr${rec.entries.length === 1 ? 'y' : 'ies'}`;
+    if (rec.entries.length === 0) {
+      equipEmpty.style.display = 'block';
+      equipTable.style.display = 'none';
+      return;
+    }
+    equipEmpty.style.display = 'none';
+    equipTable.style.display = 'table';
+    equipTableBody.innerHTML = rec.entries.map((e, i) => `
+      <tr>
+        <td>${fmtWhen(e.ts)}</td>
+        <td>${escapeHtml(e.source)}</td>
+        <td>${escapeHtml(e.reading)}${e.unit ? ' ' + escapeHtml(e.unit) : ''}</td>
+        <td class="note-cell">${escapeHtml(e.note || '')}</td>
+        <td><button class="equip-del" data-idx="${i}">Remove</button></td>
+      </tr>`).join('');
+    equipTableBody.querySelectorAll('.equip-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        const rec2 = await getEquipmentRecord(currentProfileName());
+        rec2.entries.splice(idx, 1);
+        await saveEquipmentRecord(rec2);
+        await refreshEquipmentPanel();
+      });
+    });
+  }
+
+  btnAddEquip.addEventListener('click', async () => {
+    const source = equipName.value.trim();
+    const reading = equipReading.value.trim();
+    if (!source || !reading) {
+      equipName.focus();
+      return;
+    }
+    const name = currentProfileName();
+    const rec = await getEquipmentRecord(name);
+    rec.entries.push({ ts: Date.now(), source, reading, unit: equipUnit.value.trim(), note: equipNote.value.trim() });
+    if (rec.entries.length > 100) rec.entries.shift();
+    await saveEquipmentRecord(rec);
+    equipName.value = ''; equipReading.value = ''; equipUnit.value = ''; equipNote.value = '';
+    await refreshEquipmentPanel();
+  });
+
+  function deltaSpan(el, now, prev, unit, higherIsAlert) {
+    if (now == null || prev == null) { el.textContent = ''; el.className = 'delta flat'; return; }
+    const d = now - prev;
+    const rounded = Math.round(d * 10) / 10;
+    if (Math.abs(rounded) < 0.5) { el.textContent = '≈ no change'; el.className = 'delta flat'; return; }
+    const arrow = rounded > 0 ? '▲' : '▼';
+    const cls = (rounded > 0) === !!higherIsAlert ? 'up' : 'down';
+    el.textContent = `${arrow} ${Math.abs(rounded)}${unit}`;
+    el.className = 'delta ' + cls;
+  }
+
+  function generateInsight(curr, prev) {
+    if (!prev) {
+      return `First saved session for <b>${escapeHtml(curr.profileName || currentProfileName())}</b>. Once you save a second session (even a different day), this panel will compare the two and point out what shifted.`;
+    }
+    const bits = [];
+    if (curr.avgBpm && prev.avgBpm) {
+      const d = Math.round(curr.avgBpm - prev.avgBpm);
+      if (Math.abs(d) >= 5) {
+        bits.push(`Heart rate reading is ${Math.abs(d)} bpm ${d > 0 ? 'higher' : 'lower'} than last time (${Math.round(prev.avgBpm)} → ${Math.round(curr.avgBpm)}). Ordinary causes include caffeine, recent activity, room temperature, time of day, stress, or just measurement noise between sessions.`);
+      } else {
+        bits.push(`Heart rate reading is close to last session (${Math.round(prev.avgBpm)} → ${Math.round(curr.avgBpm)} bpm).`);
+      }
+    }
+    if (curr.avgHrv && prev.avgHrv) {
+      const d = Math.round(curr.avgHrv - prev.avgHrv);
+      if (Math.abs(d) >= 8) {
+        bits.push(`Pulse variability moved ${d > 0 ? 'up' : 'down'} by about ${Math.abs(d)} ms — this metric is naturally noisy session to session with a webcam, so treat one change as a data point, not a trend.`);
+      }
+    }
+    if (curr.avgBr && prev.avgBr) {
+      const d = Math.round(curr.avgBr - prev.avgBr);
+      if (Math.abs(d) >= 3) {
+        bits.push(`Estimated breathing rate shifted by ${Math.abs(d)} breaths/min — this reading is the least reliable of the three, so weight it lightly.`);
+      }
+    }
+    if (bits.length === 0) bits.push('Readings are broadly similar to the last saved session — nothing notable stands out.');
+    bits.push(`<b>None of this is a diagnosis.</b> If a change is large, repeats across several sessions, or comes with symptoms you're worried about, that's worth mentioning to an actual healthcare professional rather than trusting this webcam estimate.`);
+    return bits.join(' ');
+  }
+
+  async function renderComparison(rec, liveSummary) {
+    compareProfileName.textContent = rec.name || currentProfileName();
+    compareCount.textContent = rec.sessions.length + ' session(s) saved';
+
+    const sessions = rec.sessions.slice();
+    if (liveSummary) sessions.push(liveSummary);
+
+    if (sessions.length === 0) {
+      noHistoryMsg.style.display = 'block';
+      compareBody.style.display = 'none';
+      document.getElementById('printMeta').textContent = `Profile: ${rec.name || currentProfileName()} · Generated: ${new Date().toLocaleString()} · 0 sessions on record`;
+      return;
+    }
+    noHistoryMsg.style.display = 'none';
+    compareBody.style.display = 'block';
+
+    const curr = sessions[sessions.length - 1];
+    const prev = sessions.length >= 2 ? sessions[sessions.length - 2] : null;
+
+    document.getElementById('cmpBpmNow').textContent = curr.avgBpm ? Math.round(curr.avgBpm) : '—';
+    document.getElementById('cmpBrNow').textContent = curr.avgBr ? Math.round(curr.avgBr) : '—';
+    document.getElementById('cmpHrvNow').textContent = curr.avgHrv ? Math.round(curr.avgHrv) : '—';
+    document.getElementById('cmpQualNow').textContent = curr.avgQuality ? Math.round(curr.avgQuality) + '%' : '—';
+
+    deltaSpan(document.getElementById('cmpBpmDelta'), curr.avgBpm, prev && prev.avgBpm, ' bpm', true);
+    deltaSpan(document.getElementById('cmpBrDelta'), curr.avgBr, prev && prev.avgBr, '/min', true);
+    deltaSpan(document.getElementById('cmpHrvDelta'), curr.avgHrv, prev && prev.avgHrv, ' ms', false);
+    deltaSpan(document.getElementById('cmpQualDelta'), curr.avgQuality, prev && prev.avgQuality, '%', false);
+
+    document.getElementById('cmpBpmPrev').textContent = prev ? `prev: ${Math.round(prev.avgBpm || 0)} bpm on ${fmtWhen(prev.ts)}` : 'no prior session';
+    document.getElementById('cmpBrPrev').textContent = prev ? `prev: ${Math.round(prev.avgBr || 0)}/min` : '';
+    document.getElementById('cmpHrvPrev').textContent = prev ? `prev: ${Math.round(prev.avgHrv || 0)} ms` : '';
+    document.getElementById('cmpQualPrev').textContent = prev ? `prev: ${Math.round(prev.avgQuality || 0)}%` : '';
+
+    insightBox.innerHTML = generateInsight(curr, prev);
+    drawHistoryChart(sessions);
+    renderHistoryTable(sessions, rec.name || currentProfileName());
+    renderReferenceTable(curr);
+  }
+
+  // Reference ranges from published, cited sources — general population context only, not a diagnostic threshold.
+  const REF_RANGES = {
+    hr: { min: 60, max: 100, label: '60–100 bpm', source: 'American Heart Association / Mayo Clinic' },
+    br: { min: 12, max: 20, label: '12–20 breaths/min', source: 'Cleveland Clinic / American Lung Association' }
+  };
+
+  function classifyRange(value, min, max) {
+    if (value == null) return { cls: 'na', text: '—' };
+    if (value < min) return { cls: 'below', text: 'below typical range' };
+    if (value > max) return { cls: 'above', text: 'above typical range' };
+    return { cls: 'within', text: 'within typical range' };
+  }
+
+  function renderReferenceTable(curr) {
+    const tbody = document.getElementById('refTableBody');
+    const hrFlag = classifyRange(curr.avgBpm, REF_RANGES.hr.min, REF_RANGES.hr.max);
+    const brFlag = classifyRange(curr.avgBr, REF_RANGES.br.min, REF_RANGES.br.max);
+    tbody.innerHTML = `
+      <tr>
+        <td>Heart rate</td>
+        <td>${curr.avgBpm ? Math.round(curr.avgBpm) + ' bpm' : '—'}<br><span class="ref-flag ${hrFlag.cls}">${hrFlag.text}</span></td>
+        <td>${REF_RANGES.hr.label}</td>
+        <td class="src">${REF_RANGES.hr.source}</td>
+      </tr>
+      <tr>
+        <td>Breathing rate</td>
+        <td>${curr.avgBr ? Math.round(curr.avgBr) + '/min' : '—'}<br><span class="ref-flag ${brFlag.cls}">${brFlag.text}</span></td>
+        <td>${REF_RANGES.br.label}</td>
+        <td class="src">${REF_RANGES.br.source}</td>
+      </tr>
+      <tr>
+        <td>Pulse variability (HRV)</td>
+        <td>${curr.avgHrv ? Math.round(curr.avgHrv) + ' ms' : '—'}<br><span class="ref-flag na">track your own trend</span></td>
+        <td>No single population "normal"</td>
+        <td class="src">Individual — compare only to your own history</td>
+      </tr>`;
+  }
+
+  function renderHistoryTable(sessions, name) {
+    const tbody = document.getElementById('historyTableBody');
+    tbody.innerHTML = sessions.map(s => `
+      <tr>
+        <td>${fmtWhen(s.ts)}</td>
+        <td>${s.avgBpm ? Math.round(s.avgBpm) + ' bpm' : '—'}</td>
+        <td>${s.avgBr ? Math.round(s.avgBr) + '/min' : '—'}</td>
+        <td>${s.avgHrv ? Math.round(s.avgHrv) + ' ms' : '—'}</td>
+        <td>${s.avgQuality ? Math.round(s.avgQuality) + '%' : '—'}</td>
+      </tr>`).join('');
+    document.getElementById('printMeta').textContent =
+      `Profile: ${name} · Generated: ${new Date().toLocaleString()} · ${sessions.length} session(s) on record`;
+  }
+
+  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+  document.getElementById('btnClearProfile').addEventListener('click', async () => {
+    const name = currentProfileName();
+    if (!confirm(`Delete all saved sessions for "${name}"? This can't be undone.`)) return;
+    try { await window.storage.delete('vitals-profile:' + name, false); } catch (e) { /* ignore */ }
+    const list = (await storageGet('vitals-profile-list')) || [];
+    await storageSet('vitals-profile-list', list.filter(n => n !== name));
+    await loadProfileList();
+    await refreshProfileSummary();
+  });
+
+  function drawHistoryChart(sessions) {
+    const rect = historyChart.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    historyChart.width = Math.max(300, rect.width * dpr);
+    historyChart.height = Math.max(100, (rect.height || 120) * dpr);
+    const w = historyChart.width, h = historyChart.height;
+    historyCtx.clearRect(0, 0, w, h);
+
+    const bpms = sessions.map(s => s.avgBpm).filter(v => v != null);
+    if (bpms.length < 1) return;
+    const min = Math.min(...bpms) - 5, max = Math.max(...bpms) + 5;
+    const pad = 14 * dpr;
+
+    historyCtx.strokeStyle = 'rgba(255,176,0,0.08)';
+    for (let i = 0; i <= 4; i++) {
+      const y = pad + (h - 2 * pad) * (i / 4);
+      historyCtx.beginPath(); historyCtx.moveTo(pad, y); historyCtx.lineTo(w - pad, y); historyCtx.stroke();
+    }
+
+    historyCtx.beginPath();
+    historyCtx.strokeStyle = '#ffb000';
+    historyCtx.lineWidth = 2 * dpr;
+    historyCtx.shadowColor = 'rgba(255,176,0,0.6)';
+    historyCtx.shadowBlur = 6;
+    sessions.forEach((s, i) => {
+      if (s.avgBpm == null) return;
+      const x = pad + (w - 2 * pad) * (sessions.length === 1 ? 0.5 : i / (sessions.length - 1));
+      const y = h - pad - ((s.avgBpm - min) / (max - min)) * (h - 2 * pad);
+      if (i === 0) historyCtx.moveTo(x, y); else historyCtx.lineTo(x, y);
+    });
+    historyCtx.stroke();
+    historyCtx.shadowBlur = 0;
+
+    sessions.forEach((s, i) => {
+      if (s.avgBpm == null) return;
+      const x = pad + (w - 2 * pad) * (sessions.length === 1 ? 0.5 : i / (sessions.length - 1));
+      const y = h - pad - ((s.avgBpm - min) / (max - min)) * (h - 2 * pad);
+      historyCtx.beginPath();
+      historyCtx.fillStyle = '#ffb000';
+      historyCtx.arc(x, y, 3 * dpr, 0, Math.PI * 2);
+      historyCtx.fill();
+    });
+  }
+
+  // ---------- Helpers ----------
+  function setStatus(msg, kind) {
+    statusLine.textContent = msg;
+    statusLine.className = 'status-line' + (kind ? ' ' + kind : '');
+  }
+
+  function resizeScopeCanvas() {
+    const rect = scopeCanvas.getBoundingClientRect();
+    scopeCanvas.width = Math.max(300, Math.floor(rect.width * (window.devicePixelRatio || 1)));
+    scopeCanvas.height = Math.max(100, Math.floor(rect.height * (window.devicePixelRatio || 1)));
+  }
+  window.addEventListener('resize', resizeScopeCanvas);
+
+  // ---------- Camera device & resolution selection ----------
+  const cameraSelect = document.getElementById('cameraSelect');
+  const resSelect = document.getElementById('resSelect');
+  const btnRefreshCams = document.getElementById('btnRefreshCams');
+
+  const RES_PRESETS = {
+    '480': { width: 640, height: 480 },
+    '720': { width: 1280, height: 720 },
+    '1080': { width: 1920, height: 1080 },
+    '2160': { width: 3840, height: 2160 }
+  };
+
+  async function refreshCameraList() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d => d.kind === 'videoinput');
+      const prevValue = cameraSelect.value;
+      cameraSelect.innerHTML = '<option value="">Default camera</option>' +
+        cams.map((d, i) => `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(d.label || ('Camera ' + (i + 1)))}</option>`).join('');
+      if ([...cameraSelect.options].some(o => o.value === prevValue)) cameraSelect.value = prevValue;
+      if (cams.length === 0) {
+        setStatus('No cameras detected yet. If you just plugged one in, click "Refresh camera list".');
+      } else if (cams.every(d => !d.label)) {
+        setStatus('Camera list found, but names are hidden until you grant camera access once — start a session, then refresh.');
+      }
+    } catch (e) { /* ignore */ }
+  }
+  btnRefreshCams.addEventListener('click', refreshCameraList);
+  refreshCameraList();
+
+  function buildVideoConstraints() {
+    const preset = RES_PRESETS[resSelect.value] || RES_PRESETS['720'];
+    const constraints = {
+      width: { ideal: preset.width },
+      height: { ideal: preset.height },
+      frameRate: { ideal: 30 }
+    };
+    if (cameraSelect.value) {
+      constraints.deviceId = { exact: cameraSelect.value };
+    } else {
+      constraints.facingMode = 'user';
+    }
+    return constraints;
+  }
+
+  // ---------- Camera lifecycle ----------
+  function isFileProtocol() { return window.location.protocol === 'file:'; }
+
+  function detectPlatform() {
+    const ua = navigator.userAgent || '';
+    if (/Android/i.test(ua)) return 'android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+    return 'desktop';
+  }
+
+  function codeEl(s) { return `<code style="background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:3px;">${s}</code>`; }
+
+  const PLATFORM_FIX_INSTRUCTIONS = {
+    android: `
+      <b>Easiest —</b> skip the file entirely and use this app right inside this chat.<br><br>
+      <b>To make the downloaded file work as its own link on this phone (GitHub Pages, free):</b><br>
+      1. Open ${codeEl('github.com')} in Chrome and sign in (or create a free account).<br>
+      2. Tap the <b>+</b> icon → <b>New repository</b> → give it any name → <b>Create repository</b>.<br>
+      3. Tap <b>Add file</b> → <b>Upload files</b> → pick this HTML file from your Downloads.<br>
+      4. During upload, rename it to ${codeEl('index.html')} → commit the changes.<br>
+      5. In the repo, go to <b>Settings → Pages</b> → under "Build and deployment" set Source to <b>Deploy from a branch</b>, branch <b>main</b>, folder <b>/(root)</b> → Save.<br>
+      6. Wait about a minute, then open the ${codeEl('https://your-username.github.io/your-repo-name/')} link it gives you, in Chrome — allow the camera when it prompts.`,
+    ios: `
+      <b>Easiest —</b> skip the file entirely and use this app right inside this chat.<br><br>
+      <b>To make the downloaded file work as its own link on this device (GitHub Pages, free):</b><br>
+      1. Open ${codeEl('github.com')} in Safari or Chrome and sign in (or create a free account).<br>
+      2. Tap the <b>+</b> icon → <b>New repository</b> → give it any name → <b>Create repository</b>.<br>
+      3. Tap <b>Add file</b> → <b>Upload files</b> → pick this HTML file from Files.<br>
+      4. During upload, rename it to ${codeEl('index.html')} → commit the changes.<br>
+      5. In the repo, go to <b>Settings → Pages</b> → set Source to <b>Deploy from a branch</b>, branch <b>main</b>, folder <b>/(root)</b> → Save.<br>
+      6. Wait about a minute, open the ${codeEl('https://your-username.github.io/your-repo-name/')} link — allow the camera when it prompts.<br><br>
+      Also check <b>Settings app → [your browser] → Camera</b> is toggled on at the iOS level.`,
+    desktop: `
+      <b>Easiest —</b> skip the file entirely and use this app right inside this chat.<br><br>
+      <b>Local server (fastest if you have a terminal):</b><br>
+      Mac/Linux: ${codeEl('python3 -m http.server 8000')}<br>
+      Windows: ${codeEl('py -m http.server 8000')}<br>
+      then open ${codeEl('http://localhost:8000/')} and click the file name.<br><br>
+      <b>Or host it for free (GitHub Pages):</b> create a repo on github.com, upload this file as ${codeEl('index.html')}, then enable it under Settings → Pages → Deploy from a branch (main, /root). Open the generated github.io link.`
+  };
+
+  function renderPlatformInstructions() {
+    const sel = document.getElementById('platformSelect');
+    const box = document.getElementById('fileProtocolText');
+    if (sel && box) box.innerHTML = PLATFORM_FIX_INSTRUCTIONS[sel.value] || '';
+  }
+
+  function describeCameraError(err) {
+    if (isFileProtocol()) {
+      return 'This page was opened as a local file (file://). Most browsers silently block camera access there — even the permission prompt never appears, so it looks like "denied" when really the browser never asked. See the fix steps above the camera panel.';
+    }
+    if (!window.isSecureContext) {
+      return 'Blocked: this page needs a secure context (HTTPS, or localhost) for camera access. Use it inside this chat interface, or serve it locally / over HTTPS — see the fix steps above the camera panel.';
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return 'This browser does not expose a camera API on this page. Try an up-to-date Chrome, Edge, Firefox, or Safari, and make sure you\'re not in a stripped-down embedded browser view.';
+    }
+    const name = err && err.name;
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return 'Camera permission is blocked for this exact page/origin. Click the camera or lock icon at the left of your browser\'s address bar → set Camera to "Allow" → reload this page, then press Start Session again. (If you\'re not sure why, note the address bar URL — if it starts with "file://", see the fix steps above instead; a reload alone won\'t help there.)';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'No camera was found. Check it\'s plugged in and not disabled in your OS camera privacy settings, then click "Refresh camera list".';
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return 'The camera is in use by another app (or a driver glitch). Close other apps using it (Zoom, Teams, other browser tabs) and try again.';
+    }
+    if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+      return 'The selected camera can\'t deliver the requested resolution. Try a lower "Requested resolution" option and try again.';
+    }
+    if (name === 'SecurityError') {
+      return 'Camera access was blocked for security reasons on this page/origin.';
+    }
+    return 'Camera access denied or unavailable (' + (name || 'unknown error') + '). Check your browser\'s site permissions for the camera.';
+  }
+
+  async function startCamera() {
+    if (running) return;
+    btnStart.disabled = true;
+    setStatus('Requesting camera access…');
+
+    if (isFileProtocol() || !window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      btnStart.disabled = false;
+      setStatus(describeCameraError(null), 'warn');
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: buildVideoConstraints(),
+        audio: false
+      });
+    } catch (err) {
+      // If a specific device failed (e.g. unplugged), fall back to the default camera once.
+      if (cameraSelect.value) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+          setStatus('Selected camera unavailable — fell back to the default camera.', 'warn');
+        } catch (err2) {
+          btnStart.disabled = false;
+          setStatus(describeCameraError(err2), 'warn');
+          return;
+        }
+      } else {
+        btnStart.disabled = false;
+        setStatus(describeCameraError(err), 'warn');
+        return;
+      }
+    }
+    await refreshCameraList(); // now that permission is granted, device labels become available
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    camPlaceholder.style.display = 'none';
+    camState.textContent = 'LIVE';
+    camState.style.color = '#e4572e';
+    running = true;
+    btnStop.disabled = false;
+
+    resizeScopeCanvas();
+    resetBuffers();
+    startTime = performance.now() / 1000;
+
+    sampleTimer = setInterval(sampleFrame, 1000 / SAMPLE_HZ);
+    analysisTimer = setInterval(runAnalysis, 1000);
+    rafId = requestAnimationFrame(drawScopeLoop);
+
+    setStatus('Calibrating… hold still and keep your face inside the oval.', 'good');
+    calibState.textContent = 'WARMING UP';
+  }
+
+  async function stopCamera() {
+    running = false;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.srcObject = null;
+    camPlaceholder.style.display = 'flex';
+    camState.textContent = 'OFFLINE';
+    camState.style.color = '';
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+    clearInterval(sampleTimer);
+    clearInterval(analysisTimer);
+    if (rafId) cancelAnimationFrame(rafId);
+
+    if (sessionAcc && sessionAcc.bpmN >= 5) {
+      const summary = {
+        ts: Date.now(),
+        avgBpm: sessionAcc.bpmN ? sessionAcc.bpmSum / sessionAcc.bpmN : null,
+        avgHrv: sessionAcc.hrvN ? sessionAcc.hrvSum / sessionAcc.hrvN : null,
+        avgBr: sessionAcc.brN ? sessionAcc.brSum / sessionAcc.brN : null,
+        avgQuality: sessionAcc.qualN ? sessionAcc.qualSum / sessionAcc.qualN : null
+      };
+      const rec = await saveSessionForCurrentProfile(summary);
+      await renderComparison(rec, null);
+      setStatus('Session stopped and saved to "' + currentProfileName() + '". See the comparison panel below.', 'good');
+    } else {
+      setStatus('Session stopped. Not enough clean signal was captured, so nothing was saved.', 'warn');
+    }
+    calibState.textContent = '—';
+    bpmNum.innerHTML = '— <small>BPM</small>';
+    brVal.innerHTML = '—<span> /min</span>';
+    hrvVal.innerHTML = '—<span> ms</span>';
+    qualVal.innerHTML = '—<span>%</span>';
+    qualBar.style.width = '0%';
+    stressVal.textContent = '—';
+    guide.classList.remove('ok');
+    scopeCtx.clearRect(0, 0, scopeCanvas.width, scopeCanvas.height);
+  }
+
+  function resetBuffers() {
+    buf = [];
+    beatIntervals = [];
+    currentBpm = currentBr = currentHrv = null;
+    currentQuality = 0;
+    emaFast = emaSlow = null; emaVar = 1;
+    refractoryUntil = 0;
+    sessionAcc = { bpmSum: 0, bpmN: 0, hrvSum: 0, hrvN: 0, brSum: 0, brN: 0, qualSum: 0, qualN: 0 };
+  }
+
+  btnStart.addEventListener('click', startCamera);
+  btnStop.addEventListener('click', stopCamera);
+
+  // ---------- Sampling ----------
+  function sampleFrame() {
+    if (!running || video.readyState < 2) return;
+    sampleCtx.drawImage(video, 0, 0, SAMPLE_W, SAMPLE_H);
+    const rx = Math.floor(ROI.x0 * SAMPLE_W);
+    const ry = Math.floor(ROI.y0 * SAMPLE_H);
+    const rw = Math.floor((ROI.x1 - ROI.x0) * SAMPLE_W);
+    const rh = Math.floor((ROI.y1 - ROI.y0) * SAMPLE_H);
+    let data;
+    try {
+      data = sampleCtx.getImageData(rx, ry, rw, rh).data;
+    } catch (e) { return; }
+
+    let sr = 0, sg = 0, sb = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      sr += data[i]; sg += data[i + 1]; sb += data[i + 2];
+      n++;
+    }
+    if (n === 0) return;
+    const r = sr / n, g = sg / n, b = sb / n;
+    const brightness = (r + g + b) / 3;
+    const t = performance.now() / 1000 - startTime;
+
+    buf.push({ t, r, g, b, brightness });
+    if (buf.length > MAX_SAMPLES) buf.shift();
+
+    // guide turns green once enough non-degenerate frames collected
+    guide.classList.toggle('ok', buf.length > SAMPLE_HZ * 2 && brightness > 25 && brightness < 245);
+
+    realtimeBeatDetect(g, t);
+  }
+
+  // Lightweight real-time beat pulse (visual only — separate from the DFT estimate)
+  function realtimeBeatDetect(g, t) {
+    if (emaFast === null) { emaFast = g; emaSlow = g; return; }
+    const aFast = 0.6, aSlow = 0.05;
+    emaFast = aFast * g + (1 - aFast) * emaFast;
+    emaSlow = aSlow * g + (1 - aSlow) * emaSlow;
+    const diff = emaFast - emaSlow;
+    emaVar = 0.98 * emaVar + 0.02 * Math.abs(diff);
+    const threshold = emaVar * 1.2;
+
+    if (diff > threshold && (t * 1000) > refractoryUntil) {
+      refractoryUntil = t * 1000 + 300; // 300ms refractory ~ max 200bpm
+      onBeatDetected(t);
+    }
+  }
+
+  function onBeatDetected(tSec) {
+    const nowMs = tSec * 1000;
+    if (lastBeatTime > 0) {
+      const interval = nowMs - lastBeatTime;
+      if (interval > 300 && interval < 2000) {
+        beatIntervals.push(interval);
+        if (beatIntervals.length > 40) beatIntervals.shift();
+      }
+    }
+    lastBeatTime = nowMs;
+    pulseHeartIcon();
+  }
+
+  function pulseHeartIcon() {
+    heartIcon.classList.remove('beat');
+    void heartIcon.offsetWidth; // restart animation
+    heartIcon.classList.add('beat');
+  }
+
+  // ---------- Detrend / DFT ----------
+  function detrend(series) {
+    const n = series.length;
+    if (n === 0) return [];
+    // remove linear trend
+    let sumT = 0, sumV = 0, sumTT = 0, sumTV = 0;
+    for (let i = 0; i < n; i++) {
+      sumT += i; sumV += series[i]; sumTT += i * i; sumTV += i * series[i];
+    }
+    const denom = (n * sumTT - sumT * sumT) || 1;
+    const slope = (n * sumTV - sumT * sumV) / denom;
+    const intercept = (sumV - slope * sumT) / n;
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) out[i] = series[i] - (slope * i + intercept);
+    return out;
+  }
+
+  // direct frequency-power scan (small DFT over a band), returns {freqHz, confidence}
+  function bandPeak(samples, sampleRateHz, fMin, fMax, fStep) {
+    const n = samples.length;
+    if (n < 8) return { freqHz: 0, confidence: 0 };
+    let bestFreq = 0, bestPower = -1, totalPower = 0;
+    for (let f = fMin; f <= fMax; f += fStep) {
+      let re = 0, im = 0;
+      const w = 2 * Math.PI * f;
+      for (let i = 0; i < n; i++) {
+        const t = i / sampleRateHz;
+        const ang = w * t;
+        re += samples[i] * Math.cos(ang);
+        im -= samples[i] * Math.sin(ang);
+      }
+      const power = re * re + im * im;
+      totalPower += power;
+      if (power > bestPower) { bestPower = power; bestFreq = f; }
+    }
+    const confidence = totalPower > 0 ? bestPower / totalPower : 0;
+    return { freqHz: bestFreq, confidence };
+  }
+
+  function resampleUniform(points, hz) {
+    // points: [{t,v}] sorted by t. Returns uniform array at given hz over points span.
+    if (points.length < 2) return [];
+    const t0 = points[0].t, t1 = points[points.length - 1].t;
+    const n = Math.floor((t1 - t0) * hz);
+    if (n < 4) return [];
+    const out = new Array(n);
+    let j = 0;
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i / hz;
+      while (j < points.length - 2 && points[j + 1].t < t) j++;
+      const a = points[j], b = points[Math.min(j + 1, points.length - 1)];
+      const span = (b.t - a.t) || 1e-6;
+      const frac = Math.max(0, Math.min(1, (t - a.t) / span));
+      out[i] = a.v + (b.v - a.v) * frac;
+    }
+    return out;
+  }
+
+  // ---------- Analysis (runs ~1x/sec) ----------
+  function runAnalysis() {
+    if (!running || buf.length < SAMPLE_HZ * 5) {
+      calibState.textContent = 'WARMING UP';
+      return;
+    }
+    calibState.textContent = 'TRACKING';
+
+    // Heart-band window: last 10s
+    const heartWindowSec = 10;
+    const heartPts = buf.filter(s => s.t > buf[buf.length - 1].t - heartWindowSec)
+                         .map(s => ({ t: s.t, v: s.g }));
+    const heartUniform = resampleUniform(heartPts, SAMPLE_HZ);
+    const heartDetrended = detrend(heartUniform);
+
+    const hr = bandPeak(heartDetrended, SAMPLE_HZ, 0.7, 3.0, 0.02); // 42-180 bpm
+    const dftBpm = hr.freqHz * 60;
+
+    // Cross-check with real-time beat intervals if we have enough
+    let intervalBpm = null;
+    if (beatIntervals.length >= 4) {
+      const recent = beatIntervals.slice(-10);
+      const avgMs = recent.reduce((a, b) => a + b, 0) / recent.length;
+      intervalBpm = 60000 / avgMs;
+    }
+
+    let fusedBpm;
+    if (intervalBpm && Math.abs(intervalBpm - dftBpm) < 18) {
+      fusedBpm = 0.6 * dftBpm + 0.4 * intervalBpm;
+    } else {
+      fusedBpm = dftBpm;
+    }
+    if (fusedBpm >= 40 && fusedBpm <= 200 && hr.confidence > 0.03) {
+      currentBpm = currentBpm ? (currentBpm * 0.5 + fusedBpm * 0.5) : fusedBpm;
+    }
+
+    // Quality score: DFT confidence + brightness stability
+    const brightnessVals = buf.slice(-SAMPLE_HZ * 5).map(s => s.brightness);
+    const bMean = brightnessVals.reduce((a, b) => a + b, 0) / brightnessVals.length;
+    const bStable = bMean > 25 && bMean < 245 ? 1 : 0.3;
+    currentQuality = Math.max(0, Math.min(100, Math.round(hr.confidence * 260 * bStable)));
+
+    // Breathing band: needs a longer window
+    if (buf.length > SAMPLE_HZ * 18) {
+      const brWindowSec = 24;
+      const brPts = buf.filter(s => s.t > buf[buf.length - 1].t - brWindowSec)
+                        .map(s => ({ t: s.t, v: s.g }));
+      const brUniform = resampleUniform(brPts, SAMPLE_HZ);
+      const brDetrended = detrend(brUniform);
+      const br = bandPeak(brDetrended, SAMPLE_HZ, 0.1, 0.5, 0.005); // 6-30 br/min
+      const brRate = br.freqHz * 60;
+      if (brRate >= 6 && brRate <= 30 && br.confidence > 0.04) {
+        currentBr = currentBr ? Math.round(currentBr * 0.6 + brRate * 0.4) : Math.round(brRate);
+      }
+    }
+
+    // HRV (RMSSD-like) from recent beat intervals
+    if (beatIntervals.length >= 6) {
+      const recent = beatIntervals.slice(-16);
+      let sumSqDiff = 0, count = 0;
+      for (let i = 1; i < recent.length; i++) {
+        const d = recent[i] - recent[i - 1];
+        sumSqDiff += d * d; count++;
+      }
+      currentHrv = count > 0 ? Math.round(Math.sqrt(sumSqDiff / count)) : null;
+    }
+
+    lastTechDetail = {
+      dftBpm: Math.round(dftBpm), intervalBpm: intervalBpm ? Math.round(intervalBpm) : null,
+      hrConfidence: Math.round(hr.confidence * 1000) / 10, // percent-ish
+      bufferedFrames: buf.length, beatCount: beatIntervals.length, brightnessMean: Math.round(bMean)
+    };
+
+    updateReadoutUI();
+  }
+
+  function updateReadoutUI() {
+    if (currentBpm && currentQuality > 12) {
+      bpmNum.innerHTML = Math.round(currentBpm) + ' <small>BPM</small>';
+      setStatus('Reading pulse — stay still and keep even lighting on your face.', 'good');
+      if (sessionAcc && currentQuality > 25) {
+        sessionAcc.bpmSum += currentBpm; sessionAcc.bpmN++;
+        if (currentHrv) { sessionAcc.hrvSum += currentHrv; sessionAcc.hrvN++; }
+        if (currentBr) { sessionAcc.brSum += currentBr; sessionAcc.brN++; }
+        sessionAcc.qualSum += currentQuality; sessionAcc.qualN++;
+      }
+    } else {
+      bpmNum.innerHTML = '— <small>BPM</small>';
+      setStatus('Signal too weak. Improve lighting, remove glasses/hair from forehead, hold still.', 'warn');
+    }
+
+    brVal.innerHTML = (currentBr ? currentBr : '—') + '<span> /min</span>';
+    hrvVal.innerHTML = (currentHrv ? currentHrv : '—') + '<span> ms</span>';
+    qualVal.innerHTML = currentQuality + '<span>%</span>';
+    qualBar.style.width = currentQuality + '%';
+    qualBar.style.background = currentQuality > 55 ? 'var(--good)' : (currentQuality > 25 ? 'var(--amber)' : 'var(--alert)');
+
+    if (currentHrv) {
+      // purely illustrative demo heuristic, not a real stress metric
+      const idx = Math.max(0, Math.min(100, Math.round(100 - currentHrv / 1.2)));
+      stressVal.textContent = idx + ' / 100 (illustrative)';
+    } else {
+      stressVal.textContent = '—';
+    }
+
+    renderTechDetail();
+  }
+
+  // ---------- Scope drawing ----------
+  function drawScopeLoop() {
+    if (!running) return;
+    const w = scopeCanvas.width, h = scopeCanvas.height;
+    scopeCtx.clearRect(0, 0, w, h);
+
+    // grid
+    scopeCtx.strokeStyle = 'rgba(255,176,0,0.06)';
+    scopeCtx.lineWidth = 1;
+    for (let x = 0; x < w; x += w / 12) { scopeCtx.beginPath(); scopeCtx.moveTo(x, 0); scopeCtx.lineTo(x, h); scopeCtx.stroke(); }
+    for (let y = 0; y < h; y += h / 6) { scopeCtx.beginPath(); scopeCtx.moveTo(0, y); scopeCtx.lineTo(w, y); scopeCtx.stroke(); }
+
+    const windowSec = 8;
+    const pts = buf.filter(s => s.t > (buf.length ? buf[buf.length - 1].t : 0) - windowSec).map(s => s.g);
+    if (pts.length > 4) {
+      const dt = detrend(pts);
+      const maxAbs = Math.max(1, ...dt.map(v => Math.abs(v)));
+      scopeCtx.beginPath();
+      scopeCtx.strokeStyle = '#ffb000';
+      scopeCtx.lineWidth = 2 * (window.devicePixelRatio || 1);
+      scopeCtx.shadowColor = 'rgba(255,176,0,0.75)';
+      scopeCtx.shadowBlur = 8;
+      for (let i = 0; i < dt.length; i++) {
+        const x = (i / (dt.length - 1)) * w;
+        const y = h / 2 - (dt[i] / maxAbs) * (h * 0.42);
+        if (i === 0) scopeCtx.moveTo(x, y); else scopeCtx.lineTo(x, y);
+      }
+      scopeCtx.stroke();
+      scopeCtx.shadowBlur = 0;
+    }
+
+    scopeRate.textContent = SAMPLE_HZ + ' Hz sample · ' + buf.length + ' frames buffered';
+    rafId = requestAnimationFrame(drawScopeLoop);
+  }
+
+  // initial canvas sizing
+  resizeScopeCanvas();
+
+  // Proactive warning if this page can't get camera access at all (e.g. opened as file://)
+  const platformSelect = document.getElementById('platformSelect');
+  if (platformSelect) {
+    platformSelect.value = detectPlatform();
+    platformSelect.addEventListener('change', renderPlatformInstructions);
+  }
+  if (isFileProtocol() || !window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setStatus(describeCameraError(null), 'warn');
+    const banner = document.getElementById('fileProtocolBanner');
+    if (banner) banner.style.display = 'flex';
+    renderPlatformInstructions();
+    btnStart.disabled = true;
+    btnStart.textContent = 'Camera unavailable here — see notice above';
+    btnStart.title = 'This page cannot reach the camera the way it is currently opened. See the notice above the camera panel for fixes.';
+  }
+
+  // initial profile/history load
+  (async () => {
+    await loadProfileList();
+    await refreshProfileSummary();
+  })();
+})();
+</script>
+</body>
+</html>
