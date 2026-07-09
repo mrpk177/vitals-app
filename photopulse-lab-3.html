@@ -13,6 +13,7 @@
     --panel-2: #241c15;
     --hairline: #3a2f22;
     --amber: #ffb000;
+    --amber-rgb: 255,176,0;
     --amber-dim: #8a5f14;
     --copper: #c97c4b;
     --paper: #cdbfa9;
@@ -26,6 +27,7 @@
     --panel-2: #f7f9fb;
     --hairline: #d5dde4;
     --amber: #1565c0;
+    --amber-rgb: 21,101,192;
     --amber-dim: #6a97c9;
     --copper: #0d7d7a;
     --paper: #1c2733;
@@ -144,14 +146,14 @@
   .cam-placeholder svg{opacity:.5;}
   .guide{
     position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
-    width:46%; height:64%; border:1.5px dashed rgba(255,176,0,0.55);
+    width:46%; height:64%; border:1.5px dashed rgba(var(--amber-rgb),0.55);
     border-radius:50% / 42%; pointer-events:none;
     transition:border-color .3s;
   }
   .guide.ok{border-color:rgba(127,174,107,0.75);}
   .roi-box{
     position:absolute; left:38%; top:26%; width:24%; height:16%;
-    border:1px solid rgba(255,176,0,0.85); border-radius:2px; pointer-events:none;
+    border:1px solid rgba(var(--amber-rgb),0.85); border-radius:2px; pointer-events:none;
     box-shadow:0 0 0 2000px rgba(0,0,0,0.0);
   }
   .cam-hint{
@@ -186,8 +188,8 @@
     border-bottom:1px solid var(--hairline); padding-bottom:16px;
   }
   .heart-icon{flex-shrink:0;}
-  .heart-icon svg{filter:drop-shadow(0 0 6px rgba(255,176,0,0.0)); transition:filter .1s;}
-  .heart-icon.beat svg{filter:drop-shadow(0 0 10px rgba(255,176,0,0.9));}
+  .heart-icon svg{filter:drop-shadow(0 0 6px rgba(var(--amber-rgb),0.0)); transition:filter .1s;}
+  .heart-icon.beat svg{filter:drop-shadow(0 0 10px rgba(var(--amber-rgb),0.9));}
   .heart-icon.beat{animation:thump .25s ease-out;}
   @keyframes thump{ 0%{transform:scale(1);} 30%{transform:scale(1.22);} 100%{transform:scale(1);} }
   .bpm-num{
@@ -269,7 +271,7 @@
   .delta.flat{color:var(--muted);}
   .compare-metric .prev{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); margin-top:2px;}
   .insight-box{
-    background:rgba(255,176,0,0.05); border:1px solid rgba(255,176,0,0.25); border-left:3px solid var(--amber);
+    background:rgba(var(--amber-rgb),0.05); border:1px solid rgba(var(--amber-rgb),0.25); border-left:3px solid var(--amber);
     border-radius:3px; padding:12px 14px; font-size:13px; line-height:1.65; color:#e7d9c8; margin-bottom:14px;
   }
   .insight-box b{color:var(--amber);}
@@ -303,6 +305,26 @@
     color:var(--muted); border:1px dashed var(--hairline); border-radius:4px; padding:8px 12px;
   }
   .cloud-stub-dot{width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0;}
+
+  /* ---------- App lock ---------- */
+  .lock-overlay{
+    position:fixed; inset:0; background:rgba(10,8,6,0.96); z-index:9999;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .lock-box{
+    background:var(--panel); border:1px solid var(--hairline); border-radius:10px;
+    padding:28px 24px; max-width:340px; width:100%; text-align:center;
+  }
+  .lock-title{font-family:'Big Shoulders Display',sans-serif; font-size:22px; font-weight:800; color:var(--amber); text-transform:uppercase;}
+  .lock-sub{font-size:12.5px; color:var(--muted); margin:8px 0 16px; line-height:1.5;}
+  .lock-box input{
+    width:100%; background:#100c08; border:1px solid var(--hairline); color:var(--paper);
+    font-family:'JetBrains Mono',monospace; font-size:20px; letter-spacing:.3em; text-align:center;
+    padding:12px; border-radius:6px; margin-bottom:12px;
+  }
+  .lock-box button{width:100%;}
+  .lock-error{color:var(--alert); font-family:'JetBrains Mono',monospace; font-size:12px; min-height:16px; margin-top:8px;}
+  .lock-note{font-size:10.5px; color:var(--muted); line-height:1.5; margin-top:16px; border-top:1px dashed var(--hairline); padding-top:12px;}
 
   /* ---------- Reference ranges ---------- */
   .ref-ranges{margin-top:18px; padding-top:14px; border-top:1px solid var(--hairline);}
@@ -352,7 +374,7 @@
     body{background:#fff !important; color:#000 !important; padding:16px;}
     .print-only{display:block !important;}
     header, .banner, .profile-bar, .cam-note, .cam-stage, .controls, .status-line, #camPanelLabel,
-    .readouts, .scope-panel, footer, .report-actions, .panel-label, #fileProtocolBanner{display:none !important;}
+    .readouts, .scope-panel, footer, .report-actions, .panel-label, #fileProtocolBanner, .lock-overlay{display:none !important;}
     main{display:block !important;}
     .compare-panel{border:none !important; background:#fff !important; padding:0 !important;}
     .compare-grid{grid-template-columns:repeat(4,1fr) !important;}
@@ -384,6 +406,17 @@
   Self-collected at home using a webcam-based optical pulse estimate (rPPG), not a clinical device. Values are approximate and can be affected by lighting, motion, and skin tone. Provided as context only — please interpret alongside a proper clinical exam.
 </div>
 <div class="wrap">
+
+  <div id="lockOverlay" class="lock-overlay" style="display:none;">
+    <div class="lock-box">
+      <div class="lock-title">🔒 App locked</div>
+      <p class="lock-sub">Enter the PIN to view this profile's data on this device.</p>
+      <input type="password" id="lockPinInput" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="PIN">
+      <button class="primary" id="lockUnlockBtn">Unlock</button>
+      <div id="lockError" class="lock-error"></div>
+      <p class="lock-note">This is a privacy screen-lock for this device only — not encryption, and not a real account system. Anyone with browser developer tools could bypass it; it just stops a casual glance.</p>
+    </div>
+  </div>
 
   <header>
     <div>
@@ -428,6 +461,10 @@
         <option value="lab">Lab (amber/dark)</option>
         <option value="clinical">Clinical (white/blue)</option>
       </select>
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button id="btnManagePin">🔒 App lock (PIN)</button>
     </div>
     <div class="profile-summary" id="profileSummary">No saved sessions yet for this name.</div>
   </div>
@@ -480,7 +517,7 @@
 
       <div class="bpm-card">
         <div class="heart-icon" id="heartIcon">
-          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#ffb000" stroke-width="1.6">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--amber);">
             <path d="M12 21s-7.5-4.9-10-9.3C.4 8.6 2 5 5.6 5c2 0 3.4 1.1 4.4 2.6C11 6.1 12.4 5 14.4 5 18 5 19.6 8.6 22 11.7 19.5 16.1 12 21 12 21z"/>
           </svg>
         </div>
@@ -1237,16 +1274,16 @@
     const min = Math.min(...bpms) - 5, max = Math.max(...bpms) + 5;
     const pad = 14 * dpr;
 
-    historyCtx.strokeStyle = 'rgba(255,176,0,0.08)';
+    historyCtx.strokeStyle = 'rgba(' + themeAmberRgb() + ',0.08)';
     for (let i = 0; i <= 4; i++) {
       const y = pad + (h - 2 * pad) * (i / 4);
       historyCtx.beginPath(); historyCtx.moveTo(pad, y); historyCtx.lineTo(w - pad, y); historyCtx.stroke();
     }
 
     historyCtx.beginPath();
-    historyCtx.strokeStyle = '#ffb000';
+    historyCtx.strokeStyle = themeAmberHex();
     historyCtx.lineWidth = 2 * dpr;
-    historyCtx.shadowColor = 'rgba(255,176,0,0.6)';
+    historyCtx.shadowColor = 'rgba(' + themeAmberRgb() + ',0.6)';
     historyCtx.shadowBlur = 6;
     sessions.forEach((s, i) => {
       if (s.avgBpm == null) return;
@@ -1262,7 +1299,7 @@
       const x = pad + (w - 2 * pad) * (sessions.length === 1 ? 0.5 : i / (sessions.length - 1));
       const y = h - pad - ((s.avgBpm - min) / (max - min)) * (h - 2 * pad);
       historyCtx.beginPath();
-      historyCtx.fillStyle = '#ffb000';
+      historyCtx.fillStyle = themeAmberHex();
       historyCtx.arc(x, y, 3 * dpr, 0, Math.PI * 2);
       historyCtx.fill();
     });
@@ -1272,6 +1309,13 @@
   function setStatus(msg, kind) {
     statusLine.textContent = msg;
     statusLine.className = 'status-line' + (kind ? ' ' + kind : '');
+  }
+
+  function themeAmberHex() {
+    return getComputedStyle(document.body).getPropertyValue('--amber').trim() || '#ffb000';
+  }
+  function themeAmberRgb() {
+    return getComputedStyle(document.body).getPropertyValue('--amber-rgb').trim() || '255,176,0';
   }
 
   function resizeScopeCanvas() {
@@ -1748,7 +1792,7 @@
     scopeCtx.clearRect(0, 0, w, h);
 
     // grid
-    scopeCtx.strokeStyle = 'rgba(255,176,0,0.06)';
+    scopeCtx.strokeStyle = 'rgba(' + themeAmberRgb() + ',0.06)';
     scopeCtx.lineWidth = 1;
     for (let x = 0; x < w; x += w / 12) { scopeCtx.beginPath(); scopeCtx.moveTo(x, 0); scopeCtx.lineTo(x, h); scopeCtx.stroke(); }
     for (let y = 0; y < h; y += h / 6) { scopeCtx.beginPath(); scopeCtx.moveTo(0, y); scopeCtx.lineTo(w, y); scopeCtx.stroke(); }
@@ -1759,9 +1803,9 @@
       const dt = detrend(pts);
       const maxAbs = Math.max(1, ...dt.map(v => Math.abs(v)));
       scopeCtx.beginPath();
-      scopeCtx.strokeStyle = '#ffb000';
+      scopeCtx.strokeStyle = themeAmberHex();
       scopeCtx.lineWidth = 2 * (window.devicePixelRatio || 1);
-      scopeCtx.shadowColor = 'rgba(255,176,0,0.75)';
+      scopeCtx.shadowColor = 'rgba(' + themeAmberRgb() + ',0.75)';
       scopeCtx.shadowBlur = 8;
       for (let i = 0; i < dt.length; i++) {
         const x = (i / (dt.length - 1)) * w;
@@ -1784,10 +1828,71 @@
     themeSelect.value = saved;
     document.body.classList.toggle('theme-clinical', saved === 'clinical');
   })();
-  themeSelect.addEventListener('change', () => {
+  themeSelect.addEventListener('change', async () => {
     document.body.classList.toggle('theme-clinical', themeSelect.value === 'clinical');
     try { localStorage.setItem('photopulse:theme', themeSelect.value); } catch (e) { /* ignore */ }
+    await refreshProfileSummary(); // redraws history chart with the new theme color
   });
+
+  // ---------- App lock (device-local PIN, not a real account system) ----------
+  async function sha256Hex(text) {
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function getPinHash() { try { return localStorage.getItem('photopulse:pinhash'); } catch (e) { return null; } }
+  function setPinHash(h) { try { if (h) localStorage.setItem('photopulse:pinhash', h); else localStorage.removeItem('photopulse:pinhash'); } catch (e) { /* ignore */ } }
+
+  const lockOverlay = document.getElementById('lockOverlay');
+  const lockPinInput = document.getElementById('lockPinInput');
+  const lockError = document.getElementById('lockError');
+
+  function showLockScreen() {
+    lockOverlay.style.display = 'flex';
+    lockPinInput.value = '';
+    lockError.textContent = '';
+    setTimeout(() => lockPinInput.focus(), 50);
+  }
+  async function tryUnlock() {
+    const hash = getPinHash();
+    const entered = await sha256Hex(lockPinInput.value);
+    if (entered === hash) {
+      lockOverlay.style.display = 'none';
+      sessionStorage.setItem('photopulse:unlocked', '1');
+    } else {
+      lockError.textContent = 'Incorrect PIN. Try again.';
+      lockPinInput.value = '';
+      lockPinInput.focus();
+    }
+  }
+  document.getElementById('lockUnlockBtn').addEventListener('click', tryUnlock);
+  lockPinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+
+  document.getElementById('btnManagePin').addEventListener('click', async () => {
+    const existing = getPinHash();
+    if (existing) {
+      const current = prompt('Enter your current PIN:');
+      if (current === null) return;
+      if ((await sha256Hex(current)) !== existing) { alert('Incorrect PIN.'); return; }
+      const wantsNew = confirm('PIN verified.\n\nTap OK to set a NEW PIN, or Cancel to remove the app lock entirely.');
+      if (!wantsNew) { setPinHash(null); alert('App lock removed for this device.'); return; }
+    }
+    const p1 = prompt('Set a new PIN (4–8 digits):');
+    if (!p1) return;
+    if (!/^\d{4,8}$/.test(p1)) { alert('PIN must be 4–8 digits.'); return; }
+    const p2 = prompt('Confirm the new PIN:');
+    if (p1 !== p2) { alert('PINs did not match — nothing was changed.'); return; }
+    setPinHash(await sha256Hex(p1));
+    alert('App lock set. You\'ll need this PIN next time you open the app on this device.');
+  });
+
+  // Check lock state on load — require it once per browser session (tab), not on every reload
+  (function checkLockOnLoad() {
+    const hash = getPinHash();
+    if (hash && sessionStorage.getItem('photopulse:unlocked') !== '1') {
+      showLockScreen();
+    }
+  })();
 
   // initial canvas sizing
   resizeScopeCanvas();
