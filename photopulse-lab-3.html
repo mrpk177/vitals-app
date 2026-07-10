@@ -624,6 +624,7 @@
       <div class="controls">
         <button class="primary" id="btnStart">Start Session</button>
         <button id="btnStop" disabled>Stop</button>
+        <button id="btnClearReading" disabled title="Discards the current unsaved reading and starts fresh, without stopping the camera">Clear reading</button>
       </div>
       <div class="status-line" id="statusLine">Idle. Press Start Session and allow camera access.</div>
     </section>
@@ -1825,6 +1826,7 @@
     camState.style.color = getComputedStyle(document.body).getPropertyValue('--alert').trim() || '#e4572e';
     running = true;
     btnStop.disabled = false;
+    document.getElementById('btnClearReading').disabled = false;
 
     // Mirror only makes sense for a front-facing selfie view
     video.classList.toggle('unmirrored', currentFacing === 'environment');
@@ -1867,6 +1869,7 @@
     camState.style.color = '';
     btnStart.disabled = false;
     btnStop.disabled = true;
+    document.getElementById('btnClearReading').disabled = true;
     clearInterval(sampleTimer);
     clearInterval(analysisTimer);
     clearInterval(timerInterval);
@@ -1910,6 +1913,15 @@
 
   btnStart.addEventListener('click', startCamera);
   btnStop.addEventListener('click', stopCamera);
+  document.getElementById('btnClearReading').addEventListener('click', () => {
+    if (!running) return;
+    resetBuffers();
+    startTime = performance.now() / 1000;
+    sessionStartMs = Date.now();
+    updateSessionTimer();
+    setStatus('Reading cleared — collecting fresh data, hold still.', 'good');
+    calibState.textContent = 'WARMING UP';
+  });
 
   // ---------- Sampling ----------
   // Rough, hue-based skin-tone plausibility check (HSV hue/saturation range).
