@@ -452,6 +452,9 @@
   .print-clinical-obs{display:none;}
   .print-letterhead .meta{font-size:14px; color:#333; margin-top:2px;}
   .print-disclaimer{font-size:13.5px; border:1px solid #999; padding:8px 10px; margin-bottom:16px; line-height:1.5;}
+  /* On normal screen view these wrappers must be fully transparent to layout —
+     they only become real bordered boxes inside @media print and .previewing (rules above/below). */
+  .print-frame-a, .print-frame-b, .print-frame-c{ display:contents; }
 
   /* ---------- On-screen "Preview Report" mode (mirrors the print rules above) ---------- */
   body.previewing{ background:#5a5a5a; }
@@ -497,7 +500,7 @@
     <button id="previewCloseBtn">Close preview</button>
   </div>
 </div>
-<div class="print-only print-frame-a"><div class="print-frame-b"><div class="print-frame-c">
+<div class="print-frame-a"><div class="print-frame-b"><div class="print-frame-c">
 
 <div class="print-only print-letterhead" id="printHeader">
   <div class="letterhead-band">
