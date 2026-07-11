@@ -183,8 +183,24 @@
   .session-timer{
     position:absolute; right:10px; top:10px; font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:700;
     background:rgba(0,0,0,0.6); color:var(--amber); padding:4px 10px; border-radius:3px; pointer-events:none;
+    transition:background .3s, color .3s;
   }
   .session-timer span{font-size:10px; font-weight:400; color:#cfcfcf;}
+  .session-timer.good{ background:rgba(79,143,109,0.92); color:#fff; }
+  .session-timer.good span{ color:#e2f2e9; }
+  .side-quality{
+    position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;
+  }
+  .side-quality-track{
+    width:10px; height:120px; background:rgba(0,0,0,0.55); border-radius:6px; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:flex-end; border:1px solid rgba(255,255,255,0.2);
+  }
+  .side-quality-fill{ width:100%; height:0%; background:var(--alert); transition:height .4s, background .4s; }
+  .side-quality-pct{
+    font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:700; color:#fff;
+    background:rgba(0,0,0,0.55); padding:2px 6px; border-radius:3px;
+  }
   .cam-quick-controls{
     position:absolute; right:10px; bottom:38px; display:flex; flex-direction:column; gap:8px;
   }
@@ -194,8 +210,8 @@
   }
   .cam-quick-controls button:hover{border-color:var(--amber); color:var(--amber);}
   .cam-quick-controls button.active{background:var(--amber); color:#1a1410; border-color:var(--amber);}
-  .cam-stage:fullscreen{ background:#000; }
-  .cam-stage:fullscreen video{ object-fit:contain; }
+  .cam-stage:fullscreen{ background:#000; width:100vw; height:100vh; aspect-ratio:auto; }
+  .cam-stage:fullscreen video{ object-fit:cover; }
   .controls{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
   button{
     font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:.06em; text-transform:uppercase;
@@ -428,7 +444,7 @@
     .letterhead-brand, .letterhead-tag, .print-clinical-obs h4, table th{ font-family:'IBM Plex Sans', sans-serif !important; }
     .print-only{display:block !important;}
     header, .banner, .profile-bar, .cam-note, .cam-stage, .controls, .status-line, #camPanelLabel,
-    .readouts, .scope-panel, footer, .report-actions, .panel-label, #fileProtocolBanner, .lock-overlay, .cam-panel-section, .face-lock, .no-report, table.equip-table button{display:none !important;}
+    .readouts, .scope-panel, footer, .report-actions, .panel-label, #fileProtocolBanner, .lock-overlay, .cam-panel-section, .face-lock, .no-report, table.equip-table button, #screenLightOverlay{display:none !important;}
     main{display:block !important;}
     .compare-panel{border:none !important; background:#fff !important; padding:0 !important;}
     .compare-grid{grid-template-columns:repeat(4,1fr) !important;}
@@ -478,7 +494,7 @@
   body.previewing .cam-stage, body.previewing #camPanelLabel, body.previewing .status-line,
   body.previewing .readouts, body.previewing .scope-panel, body.previewing footer,
   body.previewing .report-actions, body.previewing .panel-label, body.previewing .lock-overlay,
-  body.previewing .cam-panel-section, body.previewing .face-lock, body.previewing .no-report, body.previewing table.equip-table button{ display:none !important; }
+  body.previewing .cam-panel-section, body.previewing .face-lock, body.previewing .no-report, body.previewing table.equip-table button, body.previewing #screenLightOverlay{ display:none !important; }
   body.previewing main{ display:block !important; }
   body.previewing .print-only{ display:block !important; }
   body.previewing .print-frame-a{ display:block !important; background:#fff; color:#262a2e; max-width:820px; margin:70px auto 40px; border:3px solid #22262b; padding:6px; box-shadow:0 8px 30px rgba(0,0,0,0.35);}
@@ -503,12 +519,17 @@
     display:none; position:fixed; top:0; left:0; right:0; z-index:1000; background:#1a1410; border-bottom:1px solid var(--hairline);
     padding:10px 16px; align-items:center; justify-content:space-between; gap:10px;
   }
+  #screenLightOverlay{
+    display:none; position:fixed; inset:0; background:#fffdf5; z-index:900; pointer-events:none;
+  }
+  #screenLightOverlay.on{ display:block; }
   body.previewing .preview-bar{ display:flex; }
   .preview-bar span{ font-family:'JetBrains Mono',monospace; font-size:12px; color:#cdbfa9; }
   .preview-bar .actions{ display:flex; gap:8px; }
 </style>
 </head>
 <body>
+<div id="screenLightOverlay"></div>
 <div class="preview-bar" id="previewBar">
   <span>Report preview — this is what will print / export</span>
   <div class="actions">
@@ -624,10 +645,15 @@
         <div class="dist-badge" id="distBadge">Distance: an arm's length (~50cm / 18-20in)</div>
         <div class="session-timer" id="sessionTimer" style="display:none;">00:00 <span id="timerHint">/ ~0:30 min for a usable reading</span></div>
         <div class="cam-hint" id="camHint">Center your face in the oval · good even lighting helps a lot · hold still</div>
+        <div class="side-quality" id="sideQuality">
+          <div class="side-quality-track"><div class="side-quality-fill" id="sideQualityFill"></div></div>
+          <div class="side-quality-pct" id="sideQualityPct">0%</div>
+        </div>
         <div class="cam-quick-controls">
           <button id="btnFullscreen" title="Fullscreen">⛶</button>
           <button id="btnFlipCamera" title="Switch front/back camera">🔄</button>
           <button id="btnTorch" title="Toggle flashlight (back camera only)" style="display:none;">🔦</button>
+          <button id="btnScreenLight" title="Screen light (fill light for front camera — no hardware flash exists on front cameras)" style="display:none;">💡</button>
         </div>
       </div>
       <div class="face-lock" id="faceLockText">Face lock: waiting for camera…</div>
@@ -1661,14 +1687,23 @@
   const btnFullscreen = document.getElementById('btnFullscreen');
   const btnFlipCamera = document.getElementById('btnFlipCamera');
   const btnTorch = document.getElementById('btnTorch');
+  const btnScreenLight = document.getElementById('btnScreenLight');
+  const screenLightOverlay = document.getElementById('screenLightOverlay');
 
   const RECOMMENDED_SESSION_SEC = 30; // usable estimate starts forming around here; longer is better
+  const GOOD_QUALITY_THRESHOLD = 40; // % signal quality considered "a proper reading" for timer feedback
 
   function updateSessionTimer() {
     const elapsed = Math.floor((Date.now() - sessionStartMs) / 1000);
     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const ss = String(elapsed % 60).padStart(2, '0');
-    sessionTimerEl.innerHTML = `${mm}:${ss} <span id="timerHint">${elapsed < RECOMMENDED_SESSION_SEC ? '/ ~0:30 min for a usable reading' : '— good, keep going for an even steadier read'}</span>`;
+    const hasGoodReading = elapsed >= RECOMMENDED_SESSION_SEC && currentBpm && currentQuality >= GOOD_QUALITY_THRESHOLD;
+    sessionTimerEl.classList.toggle('good', hasGoodReading);
+    let hint;
+    if (hasGoodReading) hint = '✓ good reading captured';
+    else if (elapsed < RECOMMENDED_SESSION_SEC) hint = `/ ~0:30 min for a usable reading`;
+    else hint = 'still low signal — adjust light/position';
+    sessionTimerEl.innerHTML = `${mm}:${ss} <span id="timerHint">${hint}</span>`;
   }
 
   btnFullscreen.addEventListener('click', () => {
@@ -1690,6 +1725,7 @@
   btnFlipCamera.addEventListener('click', async () => {
     currentFacing = currentFacing === 'user' ? 'environment' : 'user';
     cameraSelect.value = ''; // explicit facingMode only applies without a fixed deviceId
+    screenLightOverlay.classList.remove('on'); btnScreenLight.classList.remove('active');
     if (running) {
       setStatus('Switching camera…');
       await restartCameraWithNewFacing();
@@ -1709,6 +1745,11 @@
     } catch (e) {
       setStatus('Could not toggle the flashlight on this device.', 'warn');
     }
+  });
+
+  btnScreenLight.addEventListener('click', () => {
+    const on = screenLightOverlay.classList.toggle('on');
+    btnScreenLight.classList.toggle('active', on);
   });
 
   function buildVideoConstraints() {
@@ -1859,6 +1900,9 @@
     }
     btnTorch.style.display = torchSupported ? 'flex' : 'none';
     btnTorch.classList.remove('active');
+    // No hardware torch usually exists on the front camera at all — offer a screen-flash fill light instead
+    btnScreenLight.style.display = (!torchSupported) ? 'flex' : 'none';
+    if (torchSupported) { screenLightOverlay.classList.remove('on'); btnScreenLight.classList.remove('active'); }
 
     resizeScopeCanvas();
     resetBuffers();
@@ -1936,6 +1980,8 @@
     startTime = performance.now() / 1000;
     sessionStartMs = Date.now();
     updateSessionTimer();
+    updateReadoutUI(); // force immediate blank/zeroed display instead of waiting for the next 1Hz analysis tick
+    scopeGridKey = ''; // force the scope grid to redraw cleanly on the next frame
     setStatus('Reading cleared — collecting fresh data, hold still.', 'good');
     calibState.textContent = 'WARMING UP';
   });
@@ -2215,7 +2261,17 @@
     updateReadoutUI();
   }
 
+  const sideQualityFill = document.getElementById('sideQualityFill');
+  const sideQualityPct = document.getElementById('sideQualityPct');
+  function updateSideQualityGauge() {
+    const q = Math.max(0, Math.min(100, currentQuality || 0));
+    sideQualityFill.style.height = q + '%';
+    sideQualityPct.textContent = Math.round(q) + '%';
+    sideQualityFill.style.background = q > 55 ? '#4f8f6d' : (q > 25 ? '#e0a326' : '#c0483d');
+  }
+
   function updateReadoutUI() {
+    updateSideQualityGauge();
     if (currentBpm && currentQuality > 12) {
       bpmNum.innerHTML = Math.round(currentBpm) + ' <small>BPM</small>';
       setStatus('Reading pulse — stay still and keep even lighting on your face.', 'good');
